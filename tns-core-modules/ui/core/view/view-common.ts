@@ -67,6 +67,7 @@ export abstract class ViewCommon extends ViewBase implements ViewDefinition {
     public static layoutChangedEvent = "layoutChanged";
     public static shownModallyEvent = "shownModally";
     public static showingModallyEvent = "showingModally";
+    public static popoverClosedEvent = "popoverClosed";
 
     protected _closeModalCallback: Function;
 

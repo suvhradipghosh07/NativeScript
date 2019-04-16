@@ -114,6 +114,11 @@ export abstract class View extends ViewBase {
     public static showingModallyEvent: string;
 
     /**
+     * String value used when hooking to popoverClosed event.
+     */
+    public static popoverClosedEvent: string;
+
+    /**
      * String value used when hooking to shownModally event.
      */
     public static shownModallyEvent: string;
