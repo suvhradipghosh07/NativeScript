@@ -9,8 +9,8 @@ import { Page } from "../page";
 // Types.
 import * as application from "../../application";
 import {
-    FrameBase, goBack, stack, NavigationType, Observable, View,
-    traceCategories, traceEnabled, traceError, traceWrite,
+    FrameBase, goBack, stack, NavigationContext, NavigationType, Observable, View,
+    traceCategories, traceEnabled, traceError, traceWrite
 } from "./frame-common";
 
 import {
@@ -205,7 +205,8 @@ export class Frame extends FrameBase {
 
             this._currentEntry = null;
             // NavigateCore will eventually call _processNextNavigationEntry again.
-            this._navigateCore(entry);
+
+            this._navigateCore({ entry: entry, isBackNavigation: false, navigationType: NavigationType.Forward });
             this._currentEntry = entry;
         } else {
             super._processNextNavigationEntry();
@@ -366,27 +367,8 @@ export class Frame extends FrameBase {
                 frameId: currentBackstackEntry.frameId
             }
 
-            this._executingEntry = newBackstackEntry;
-            this._onNavigatingTo(newBackstackEntry, false);
-
-            this._cachedAnimatorState = getAnimatorState(currentBackstackEntry);
-
-            const newFragment = this.createFragment(newBackstackEntry, newFragmentTag);
-            const fragmentManager = this._getFragmentManager();
-            const newTransaction = fragmentManager.beginTransaction();
-
-            // TODO(vchimev): why does 'second' page disappear when navigating to`first` page after a change?
-            _setAndroidFragmentTransitions(
-                false,
-                this._getNavigationTransition(currentNavigationEntry),
-                currentBackstackEntry,
-                newBackstackEntry,
-                newTransaction,
-                this._android.frameId
-            );
-
-            newTransaction.replace(this.containerViewId, newFragment, newFragmentTag);
-            newTransaction.commitAllowingStateLoss();
+            const navContext: NavigationContext = { entry: newBackstackEntry, isBackNavigation: false, navigationType: NavigationType.Replace };
+            super._performNavigation(navContext);
 
             return true;
         } else {
@@ -396,11 +378,14 @@ export class Frame extends FrameBase {
     }
 
     @profile
-    public _navigateCore(newEntry: BackstackEntry) {
-        super._navigateCore(newEntry);
-        this.navigationType = NavigationType.Forward;
+    public _navigateCore(navContext: NavigationContext) {
+        // Forward in case of navigate
+        // Replace in case of HMR
+        this.navigationType = navContext.navigationType;
+        super._navigateCore(navContext);
 
         // set frameId here so that we could use it in fragment.transitions
+        const newEntry = navContext.entry;
         newEntry.frameId = this._android.frameId;
 
         const activity = this._android.activity;

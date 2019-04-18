@@ -37,6 +37,7 @@ function buildEntryFromArgs(arg: any): NavigationEntry {
 export interface NavigationContext {
     entry: BackstackEntry;
     isBackNavigation: boolean;
+    navigationType: NavigationType;
 }
 
 @CSSType("Frame")
@@ -134,7 +135,8 @@ export class FrameBase extends CustomLayoutView implements FrameDefinition {
 
         const navigationContext: NavigationContext = {
             entry: backstackEntry,
-            isBackNavigation: true
+            isBackNavigation: true,
+            navigationType: NavigationType.Back
         }
 
         this._navigationQueue.push(navigationContext);
@@ -202,7 +204,8 @@ export class FrameBase extends CustomLayoutView implements FrameDefinition {
 
         const navigationContext: NavigationContext = {
             entry: backstackEntry,
-            isBackNavigation: false
+            isBackNavigation: false,
+            navigationType: NavigationType.Forward
         }
 
         this._navigationQueue.push(navigationContext);
@@ -348,19 +351,21 @@ export class FrameBase extends CustomLayoutView implements FrameDefinition {
         if (this._navigationQueue.length > 0) {
             const navigationContext = this._navigationQueue[0];
             if (navigationContext.isBackNavigation) {
+                navigationContext.navigationType = NavigationType.Back;
                 this.performGoBack(navigationContext);
             } else {
-                this.performNavigation(navigationContext);
+                navigationContext.navigationType = NavigationType.Forward;
+                this._performNavigation(navigationContext);
             }
         }
     }
 
     @profile
-    private performNavigation(navigationContext: NavigationContext) {
+    public _performNavigation(navigationContext: NavigationContext) {
         const navContext = navigationContext.entry;
         this._executingEntry = navContext;
         this._onNavigatingTo(navContext, navigationContext.isBackNavigation);
-        this._navigateCore(navContext);
+        this._navigateCore(navigationContext);
     }
 
     @profile
@@ -383,9 +388,9 @@ export class FrameBase extends CustomLayoutView implements FrameDefinition {
         }
     }
 
-    public _navigateCore(backstackEntry: BackstackEntry) {
+    public _navigateCore(navigationContext: NavigationContext) {
         if (traceEnabled()) {
-            traceWrite(`NAVIGATE CORE(${this._backstackEntryTrace(backstackEntry)}); currentPage: ${this.currentPage}`, traceCategories.Navigation);
+            traceWrite(`NAVIGATE CORE(${this._backstackEntryTrace(navigationContext.entry)}); currentPage: ${this.currentPage}`, traceCategories.Navigation);
         }
     }
 
