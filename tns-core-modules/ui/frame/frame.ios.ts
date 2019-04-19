@@ -7,8 +7,8 @@ import { profile } from "../../profiling";
 
 //Types.
 import {
-    FrameBase, View, isCategorySet, layout, NavigationType,
-    traceCategories, traceEnabled, traceWrite
+    FrameBase, View, isCategorySet, layout, NavigationContext,
+    NavigationType, traceCategories, traceEnabled, traceWrite
 } from "./frame-common";
 import { _createIOSAnimatedTransitioning } from "./fragment.transitions";
 
@@ -64,7 +64,6 @@ export class Frame extends FrameBase {
     }
 
     public _onLivesync(context?: ModuleContext): boolean {
-        // Inspired by _navigateCore()
         if (traceEnabled()) {
             traceWrite(`${this}._onLivesync(${JSON.stringify(context)})`, traceCategories.Livesync);
         }
@@ -86,62 +85,9 @@ export class Frame extends FrameBase {
                 fragmentTag: undefined
             }
 
-            this._executingEntry = newBackstackEntry;
-            this._onNavigatingTo(newBackstackEntry, false);
-
-            let viewController = newBackstackEntry.resolvedPage.ios;
-            if (!viewController) {
-                throw new Error("Required page does not have a viewController created.");
-            }
-
-            let navigationTransition: NavigationTransition;
-            let animated = this.currentPage ? this._getIsAnimatedNavigation(newBackstackEntry.entry) : false;
-            if (animated) {
-                navigationTransition = this._getNavigationTransition(newBackstackEntry.entry);
-                if (navigationTransition) {
-                    viewController[TRANSITION] = navigationTransition;
-                }
-            } else {
-                // https://github.com/NativeScript/NativeScript/issues/1787
-                viewController[TRANSITION] = { name: NON_ANIMATED_TRANSITION };
-            }
-
-            let nativeTransition = _getNativeTransition(navigationTransition, true);
-            if (!nativeTransition && navigationTransition) {
-                this._ios.controller.delegate = this._animatedDelegate;
-                viewController[DELEGATE] = this._animatedDelegate;
-            } else {
-                viewController[DELEGATE] = null;
-                this._ios.controller.delegate = null;
-            }
-
-            viewController[NAV_DEPTH] = newBackstackEntry.navDepth;
-            viewController[ENTRY] = newBackstackEntry;
-
-            if (majorVersion > 10) {
-                // Reset back button title before pushing view controller to prevent
-                // displaying default 'back' title (when NavigaitonButton custom title is set).
-                let barButtonItem = UIBarButtonItem.alloc().initWithTitleStyleTargetAction("", UIBarButtonItemStyle.Plain, null, null);
-                viewController.navigationItem.backBarButtonItem = barButtonItem;
-            }
-
-            const viewControllers = this._ios.controller.viewControllers;
-            let newViewControllers = NSMutableArray.alloc().initWithArray(viewControllers);
-            if (newViewControllers.count === 0) {
-                throw new Error("Wrong controllers count.");
-            }
-
-            // the code below fixes a phantom animation that appears on the Back button in this case
-            viewController.navigationItem.hidesBackButton = this.backStack.length === 0;
-
-            const skippedNavController = newViewControllers.lastObject;
-            (<any>skippedNavController).isBackstackSkipped = true;
-            newViewControllers.removeLastObject();
-            newViewControllers.addObject(viewController);
-
-            this._ios.controller.setViewControllersAnimated(newViewControllers, false);
-            this.currentPage.actionBar.update();
-
+            const navContext: NavigationContext = { entry: newBackstackEntry, isBackNavigation: false };
+            this._performNavigation(navContext);
+            // this.currentPage.actionBar.update();
             return true;
         } else {
             // Fallback
@@ -151,8 +97,9 @@ export class Frame extends FrameBase {
 
     @profile
     public _navigateCore(backstackEntry: BackstackEntry) {
-        this.navigationType = NavigationType.Forward;
         super._navigateCore(backstackEntry);
+        const isReplace = this.navigationType === NavigationType.Replace;
+        this.navigationType = NavigationType.Forward;
 
         let viewController: UIViewController = backstackEntry.resolvedPage.ios;
         if (!viewController) {
@@ -163,7 +110,10 @@ export class Frame extends FrameBase {
         if (clearHistory) {
             navDepth = -1;
         }
-        navDepth++;
+
+        if (!isReplace) {
+            navDepth++;
+        }
 
         let navigationTransition: NavigationTransition;
         let animated = this.currentPage ? this._getIsAnimatedNavigation(backstackEntry.entry) : false;
@@ -230,7 +180,7 @@ export class Frame extends FrameBase {
         }
 
         // We should hide the current entry from the back stack.
-        if (!Frame._isEntryBackstackVisible(this._currentEntry)) {
+        if (!Frame._isEntryBackstackVisible(this._currentEntry) || isReplace) {
             let newControllers = NSMutableArray.alloc<UIViewController>().initWithArray(this._ios.controller.viewControllers);
             if (newControllers.count === 0) {
                 throw new Error("Wrong controllers count.");

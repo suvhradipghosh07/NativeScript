@@ -14,6 +14,7 @@ import { device } from "../../platform";
 import lazy from "../../utils/lazy";
 
 import { isEnabled as traceEnabled, write as traceWrite, categories as traceCategories } from "../../trace";
+import { NavigationType } from "./frame-common";
 
 interface TransitionListener {
     new(entry: ExpandedEntry, transition: android.transition.Transition): ExpandedTransitionListener;
@@ -732,6 +733,9 @@ function transitionOrAnimationCompleted(entry: ExpandedEntry): void {
         if (current) {
             const navType = frame.navigationType;
             setTimeout(() => frame.setCurrent(current, navType));
+            if (frame.navigationType === NavigationType.Replace) {
+                frame.navigationType = NavigationType.Forward;
+            }
         }
     } else {
         completedEntries.set(frameId, entry);

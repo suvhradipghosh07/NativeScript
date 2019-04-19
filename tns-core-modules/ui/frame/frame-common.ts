@@ -350,13 +350,13 @@ export class FrameBase extends CustomLayoutView implements FrameDefinition {
             if (navigationContext.isBackNavigation) {
                 this.performGoBack(navigationContext);
             } else {
-                this.performNavigation(navigationContext);
+                this._performNavigation(navigationContext);
             }
         }
     }
 
     @profile
-    private performNavigation(navigationContext: NavigationContext) {
+    public _performNavigation(navigationContext: NavigationContext) {
         const navContext = navigationContext.entry;
         this._executingEntry = navContext;
         this._onNavigatingTo(navContext, navigationContext.isBackNavigation);
